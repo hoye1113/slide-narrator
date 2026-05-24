@@ -1,0 +1,74 @@
+.stage-container {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.stage-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.stage-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Hidden progress bar - reveals on hover */
+.stage-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stage-progress.visible {
+  opacity: 1;
+}
+
+.stage-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+/* Navigation hints */
+.stage-nav-hint {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.stage-nav-hint.visible {
+  opacity: 0.6;
+}
+
+.stage-chapter,
+.stage-step {
+  padding: 4px 8px;
+  background: var(--code-bg);
+  border-radius: 4px;
+}
+
+/* Keyboard navigation feedback */
+.stage-viewport:focus-within {
+  outline: none;
+}

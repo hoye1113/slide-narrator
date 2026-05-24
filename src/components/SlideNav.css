@@ -1,0 +1,59 @@
+.slidenav-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--code-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.slidenav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  padding: 0;
+}
+
+.slidenav-btn:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.slidenav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.slidenav-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  min-width: 48px;
+  justify-content: center;
+}
+
+.slidenav-current {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.slidenav-sep {
+  color: var(--border);
+}
+
+.slidenav-total {
+  color: var(--text);
+}
