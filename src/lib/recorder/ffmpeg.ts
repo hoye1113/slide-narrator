@@ -158,7 +158,7 @@ export async function encodeVideo(
     '-preset', 'medium',    // Encoding speed/quality tradeoff
     '-b:v', bitrate,        // Video bitrate
     '-pix_fmt', 'yuv420p',  // Required for broad compatibility
-    '-vf', `subtitles=${inputSrt}:force_style='FontSize=24,PrimaryColour=&HFFFFFF&,Bold=1'`,
+    '-vf', `subtitles=${inputSrt.replace(/([\\,:=;])/g, '\\$1')}:force_style='FontSize=24,PrimaryColour=&HFFFFFF&,Bold=1'`,
     // Scale to target resolution
     '-s', `${width}x${height}`,
     // Frame rate

@@ -255,7 +255,8 @@ export async function scanSkillsDirectory(): Promise<SkillMetadata[]> {
   // ---- Parse metadata and register each skill ----
   for (const [path, loader] of Object.entries(skillMdModules)) {
     try {
-      // `loader` is eagerly resolved by Vite, so it's the raw string directly
+      // `loader` is eagerly resolved by Vite — the raw string is available directly
+      // without awaiting. Guard against the rare case where Vite returns a thunk.
       const raw = typeof loader === 'function' ? await (loader as unknown as () => Promise<string>)() : loader;
       const content = typeof raw === 'string' ? raw : (raw as { default?: string })?.default ?? String(raw);
       const metadata = parseSkillMetadata(content);
@@ -371,10 +372,14 @@ export async function invoke(invocation: SkillInvocation): Promise<SkillResult> 
 
 /**
  * Check whether a skill has an implementation registered.
+ * Built-in skills (loadImpl=null) are considered to have an implementation.
  */
 export function hasImplementation(skillName: string): boolean {
   if (!registry) return false;
-  return registry.get(normalizeName(skillName))?.loadImpl !== null;
+  const entry = registry.get(normalizeName(skillName));
+  // Built-in skills have loadImpl=null but ARE implemented.
+  // Discovered skills have a function loader. Both are "has implementation".
+  return entry !== undefined && entry.loadImpl != null;
 }
 
 /**

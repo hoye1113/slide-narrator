@@ -343,10 +343,21 @@ function getThemeTokens(theme: ThemeDefinition): ThemeTokens {
 /**
  * Lighten or darken a color, or adjust opacity
  */
-function adjustColor(color: string, factor: number, _alphaOffset = 0): string {
+function adjustColor(color: string, factor: number): string {
   // Handle hex colors
   if (color.startsWith('#')) {
     const hex = color.slice(1);
+    if (hex.length === 3) {
+      // Expand 3-digit hex to 6-digit (e.g. #fc0 → #ffcc00)
+      const expanded = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      const r = parseInt(expanded.slice(0, 2), 16);
+      const g = parseInt(expanded.slice(2, 4), 16);
+      const b = parseInt(expanded.slice(4, 6), 16);
+      const newR = Math.min(255, Math.floor(r * factor));
+      const newG = Math.min(255, Math.floor(g * factor));
+      const newB = Math.min(255, Math.floor(b * factor));
+      return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+    }
     if (hex.length === 6) {
       const r = parseInt(hex.slice(0, 2), 16);
       const g = parseInt(hex.slice(2, 4), 16);
@@ -427,7 +438,9 @@ function parseScriptToChapters(script: string): Array<{
         // Match "- step N" or "- N." patterns
         const stepMatch = line.match(/(?:^-?\s*step\s*(\d+)\s*[-–—]?\s*(.+)|^-?\s*(\d+)\.\s+(.+))/i);
         if (stepMatch) {
-          const content = (stepMatch[2] || stepMatch[3] || '').trim();
+          // First alternative (step N): content is group 2.
+          // Second alternative (N.): content is group 3.
+          const content = (stepMatch[2] ?? stepMatch[3] ?? '').trim();
           if (content) {
             // Estimate duration: Chinese ~4 chars/sec
             const charCount = content.replace(/[#*`]/g, '').length;
@@ -472,12 +485,87 @@ function parseScriptToChapters(script: string): Array<{
   return chapters;
 }
 
+/**
+ * Parse chapters from the outline document.
+ * Outline format: ## N. chapter-id 节标题, with `- step N` or numbered items.
+ */
+function parseChaptersFromOutline(outline: string): Array<{
+  chapterId: string;
+  chapterTitle: string;
+  steps: Array<{ content: string; duration: number }>;
+}> {
+  const chapters: Array<{
+    chapterId: string;
+    chapterTitle: string;
+    steps: Array<{ content: string; duration: number }>;
+  }> = [];
+
+  const blocks = outline.split(/(?:^##\s+\d+\.\s+|^-{3,}\s*$)/gm).filter(b => b.trim());
+
+  let currentChapter: {
+    chapterId: string;
+    chapterTitle: string;
+    steps: Array<{ content: string; duration: number }>;
+  } | null = null;
+
+  for (const block of blocks) {
+    const trimmed = block.trim();
+    if (!trimmed) continue;
+
+    const chapterMatch = trimmed.match(/^(\d+)\.\s*([\w-]+)\s*[-–—]\s*(.+)/);
+    if (chapterMatch) {
+      if (currentChapter) chapters.push(currentChapter);
+      currentChapter = {
+        chapterId: chapterMatch[2].toLowerCase(),
+        chapterTitle: chapterMatch[3].trim(),
+        steps: [],
+      };
+      continue;
+    }
+
+    if (currentChapter) {
+      const lines = trimmed.split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        const stepMatch = line.match(/(?:^-?\s*step\s*(\d+)\s*[-–—]?\s*(.+)|^-?\s*(\d+)\.\s+(.+))/i);
+        if (stepMatch) {
+          // First alternative (step N): content is group 2.
+          // Second alternative (N.): content is group 3.
+          const content = (stepMatch[2] ?? stepMatch[3] ?? '').trim();
+          if (content) {
+            const charCount = content.replace(/[#*`]/g, '').length;
+            const duration = Math.max(3, Math.min(10, Math.ceil(charCount / 4)));
+            currentChapter.steps.push({ content, duration });
+          }
+        }
+      }
+      if (currentChapter.steps.length === 0) {
+        const paragraphs = trimmed.split(/\n\n+/).filter(p => p.trim().length > 10);
+        for (const para of paragraphs.slice(0, 8)) {
+          const cleanPara = para.replace(/[#*`-]/g, '').trim();
+          if (cleanPara.length > 5) {
+            const duration = Math.max(3, Math.min(10, Math.ceil(cleanPara.length / 4)));
+            currentChapter.steps.push({ content: cleanPara.substring(0, 100), duration });
+          }
+        }
+      }
+    }
+  }
+
+  if (currentChapter) chapters.push(currentChapter);
+
+  if (chapters.length === 0) {
+    return parseScriptToChapters(outline);
+  }
+
+  return chapters;
+}
+
 const wvpSkillImpl: SkillImplementation = {
   async execute(params: Record<string, unknown>): Promise<SkillResult> {
     const script = params.script as string | undefined;
+    const outline = params.outline as string | undefined;
     const themeId = (params.theme as string) ?? 'paper-press';
-    // outline parameter available for future use (e.g., explicit chapter/step alignment)
-    void params.outline;
+    const refine = Boolean(params.refine);
 
     if (!script) {
       return {
@@ -491,8 +579,30 @@ const wvpSkillImpl: SkillImplementation = {
       const themeDef = BUILT_IN_THEMES[themeId] ?? BUILT_IN_THEMES['paper-press'];
       const themeTokens = getThemeTokens(themeDef);
 
-      // Parse chapters from script
-      const parsedChapters = parseScriptToChapters(script);
+      // Parse chapters from outline if provided (explicit structure),
+      // otherwise fall back to parsing from script.
+      let parsedChapters = outline
+        ? parseChaptersFromOutline(outline)
+        : parseScriptToChapters(script);
+
+      // Refinement pass: keep only the most impactful half of slides,
+      // condensed for clarity and pacing.
+      if (refine) {
+        const allChapters = parsedChapters;
+        const allSteps = allChapters.flatMap((ch) => ch.steps);
+        const topSteps = allSteps
+          .sort((a, b) => b.duration - a.duration)
+          .slice(0, Math.max(1, Math.ceil(allSteps.length / 2)));
+        // Re-build chapter structure from top steps, preserving chapter boundaries
+        // by finding which chapter each top step came from.
+        const topStepSet = new Set(topSteps.map((s) => s.content));
+        parsedChapters = allChapters
+          .map((ch) => ({
+            ...ch,
+            steps: ch.steps.filter((s) => topStepSet.has(s.content)),
+          }))
+          .filter((ch) => ch.steps.length > 0);
+      }
 
       // Build output structure
       const chapters: ChapterOutput[] = [];

@@ -181,9 +181,12 @@ export async function startRecording(
 export async function stopRecording(): Promise<{ success: boolean; error?: string }> {
   try {
     if (activeRecorder) {
-      // The recorder lifecycle (launch → capture → cleanup) is handled
-      // internally by PuppeteerRecorder; we just clear our reference.
-      activeRecorder = null;
+      try {
+        await activeRecorder.stop();
+      } finally {
+        // Ensure cleanup even if stop() throws — prevents dangling Chrome
+        activeRecorder = null;
+      }
     }
     isRecording = false;
     return { success: true };

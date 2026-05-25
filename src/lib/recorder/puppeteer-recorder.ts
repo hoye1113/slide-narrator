@@ -165,8 +165,10 @@ export class PuppeteerRecorder {
 
     const chromePath = this.opts.chromePath || 'chrome';
 
-    this.state.chromeProcess = execFile(chromePath, chromeArgs, { timeout: 30_000 }, () => {
-      // Process exited — expected when we close it
+    this.state.chromeProcess = execFile(chromePath, chromeArgs, { timeout: 30_000 }, (err, _stdout, _stderr) => {
+      if (err) {
+        console.error('[puppeteer-recorder] Chrome exited with error:', err.message);
+      }
     });
 
     // Give Chrome time to start

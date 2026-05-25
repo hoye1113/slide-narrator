@@ -112,10 +112,40 @@ export function getSegmentDuration(segment: AudioSegment): number {
  * @param audioDir - Directory containing the audio files
  * @returns Segments whose audio file does not exist on disk
  */
+/**
+ * Check if we're running in a Node.js environment (vs browser).
+ * process.cwd exists only in Node.js.
+ */
+function isNodeEnvironment(): boolean {
+  try {
+    // eslint-disable-next-line no-unused-expressions
+    process.cwd();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Filter segments whose audio files are missing from disk.
+ *
+ * In browser environments this returns an empty array (disk access unavailable).
+ * In Node.js environments this checks actual file existence via existsSync.
+ *
+ * @param segments - Array of audio segments to check
+ * @param audioDir - Directory containing the audio files
+ * @returns Segments whose audio file does not exist on disk
+ */
 export function getMissingSegments(
   segments: AudioSegment[],
   audioDir: string,
 ): AudioSegment[] {
+  if (!isNodeEnvironment()) {
+    // Browser environment — cannot access disk
+    return [];
+  }
+
+  // Node.js environment — verify actual file existence
   return segments.filter((segment) => {
     const fullPath = join(audioDir, segment.audioPath);
     return !existsSync(fullPath);

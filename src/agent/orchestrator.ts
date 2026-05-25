@@ -27,13 +27,13 @@ import { invokeSkill } from '../skills/registry';
 // Phase definitions — ordered list matching PipelineStore's Phase union
 // ---------------------------------------------------------------------------
 
-const PHASES: readonly Phase[] = [
-  'CONTENT_AUTHORING',
-  'WEB_DEV_CH1',
-  'WEB_DEV_CH2N',
-  'AUDIO_SYNTHESIS',
-  'RECORDING',
-];
+const PHASE_INDEX: Record<Phase, number> = {
+  CONTENT_AUTHORING: 0,
+  WEB_DEV_CH1: 1,
+  WEB_DEV_CH2N: 2,
+  AUDIO_SYNTHESIS: 3,
+  RECORDING: 4,
+};
 
 // ---------------------------------------------------------------------------
 // Progress reporting
@@ -102,7 +102,7 @@ function emit(
   const progress: PipelineProgress = {
     phase,
     phaseIndex: idx,
-    totalPhases: PHASES.length,
+    totalPhases: Object.keys(PHASE_INDEX).length,
     status,
     message,
     data,
@@ -148,7 +148,7 @@ async function runContentAuthoring(
   patchStore({ article, currentPhase: 'CONTENT_AUTHORING', isRunning: true });
 
   // -- Step 1a: generate script from article --
-  emit('CONTENT_AUTHORING', 0, 'running', 'Generating narration script from article...', undefined, onProgress);
+  emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'running', 'Generating narration script from article...', undefined, onProgress);
 
   try {
     const result = await invokeSkill('script-generator', { article });
@@ -158,29 +158,29 @@ async function runContentAuthoring(
       if (script) {
         patchStore({ script });
         recordPhaseResult('CONTENT_AUTHORING', 'script-generator', true, script);
-        emit('CONTENT_AUTHORING', 0, 'completed', 'Script generated successfully', { scriptLength: script.length }, onProgress);
+        emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'completed', 'Script generated successfully', { scriptLength: script.length }, onProgress);
       } else {
         const msg = 'script-generator succeeded but returned no script text';
         errors.push(msg);
         recordPhaseResult('CONTENT_AUTHORING', 'script-generator', false, null, msg);
-        emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+        emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
       }
     } else {
       const msg = result.error ?? 'script-generator failed with unknown error';
       errors.push(msg);
       recordPhaseResult('CONTENT_AUTHORING', 'script-generator', false, null, msg);
-      emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+      emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `script-generator exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('CONTENT_AUTHORING', 'script-generator', false, null, msg);
-    emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+    emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
   }
 
   // -- Step 1b: generate outline from script + article --
   if (script) {
-    emit('CONTENT_AUTHORING', 0, 'running', 'Generating outline from script + article...', undefined, onProgress);
+    emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'running', 'Generating outline from script + article...', undefined, onProgress);
 
     try {
       const result = await invokeSkill('outline-generator', { script, article });
@@ -190,29 +190,29 @@ async function runContentAuthoring(
         if (outline) {
           patchStore({ outline });
           recordPhaseResult('CONTENT_AUTHORING', 'outline-generator', true, outline);
-          emit('CONTENT_AUTHORING', 0, 'completed', 'Outline generated successfully', { outlineLength: outline.length }, onProgress);
+          emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'completed', 'Outline generated successfully', { outlineLength: outline.length }, onProgress);
         } else {
           const msg = 'outline-generator succeeded but returned no outline text';
           errors.push(msg);
           recordPhaseResult('CONTENT_AUTHORING', 'outline-generator', false, null, msg);
-          emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+          emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
         }
       } else {
         const msg = result.error ?? 'outline-generator failed with unknown error';
         errors.push(msg);
         recordPhaseResult('CONTENT_AUTHORING', 'outline-generator', false, null, msg);
-        emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+        emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
       }
     } catch (err) {
       const msg = `outline-generator exception: ${err instanceof Error ? err.message : String(err)}`;
       errors.push(msg);
       recordPhaseResult('CONTENT_AUTHORING', 'outline-generator', false, null, msg);
-      emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+      emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
     }
   } else {
     const msg = 'Skipping outline generation — no script available';
     errors.push(msg);
-    emit('CONTENT_AUTHORING', 0, 'failed', msg, undefined, onProgress);
+    emit('CONTENT_AUTHORING', PHASE_INDEX.CONTENT_AUTHORING, 'failed', msg, undefined, onProgress);
   }
 
   // Persist errors to store
@@ -236,13 +236,13 @@ async function runWebDevCh1(
   const errors: string[] = [];
   patchStore({ currentPhase: 'WEB_DEV_CH1' });
 
-  emit('WEB_DEV_CH1', 1, 'running', 'Generating slide presentation (pass 1)...', undefined, onProgress);
+  emit('WEB_DEV_CH1', PHASE_INDEX.WEB_DEV_CH1, 'running', 'Generating slide presentation (pass 1)...', undefined, onProgress);
 
   if (!script || !outline) {
     const msg = 'Skipping slide generation (pass 1) — script or outline missing';
     errors.push(msg);
     recordPhaseResult('WEB_DEV_CH1', 'web-video-presentation', false, null, msg);
-    emit('WEB_DEV_CH1', 1, 'failed', msg, undefined, onProgress);
+    emit('WEB_DEV_CH1', PHASE_INDEX.WEB_DEV_CH1, 'failed', msg, undefined, onProgress);
     patchStore({ errors: [...readStore().errors, ...errors] });
     return { errors };
   }
@@ -252,18 +252,18 @@ async function runWebDevCh1(
 
     if (result.success) {
       recordPhaseResult('WEB_DEV_CH1', 'web-video-presentation', true, result.data);
-      emit('WEB_DEV_CH1', 1, 'completed', 'Slides generated (pass 1)', result.data, onProgress);
+      emit('WEB_DEV_CH1', PHASE_INDEX.WEB_DEV_CH1, 'completed', 'Slides generated (pass 1)', result.data, onProgress);
     } else {
       const msg = result.error ?? 'web-video-presentation (pass 1) failed';
       errors.push(msg);
       recordPhaseResult('WEB_DEV_CH1', 'web-video-presentation', false, null, msg);
-      emit('WEB_DEV_CH1', 1, 'failed', msg, undefined, onProgress);
+      emit('WEB_DEV_CH1', PHASE_INDEX.WEB_DEV_CH1, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `web-video-presentation (pass 1) exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('WEB_DEV_CH1', 'web-video-presentation', false, null, msg);
-    emit('WEB_DEV_CH1', 1, 'failed', msg, undefined, onProgress);
+    emit('WEB_DEV_CH1', PHASE_INDEX.WEB_DEV_CH1, 'failed', msg, undefined, onProgress);
   }
 
   if (errors.length > 0) {
@@ -286,13 +286,13 @@ async function runWebDevCh2n(
   const errors: string[] = [];
   patchStore({ currentPhase: 'WEB_DEV_CH2N' });
 
-  emit('WEB_DEV_CH2N', 2, 'running', 'Refining slide presentation (pass 2)...', undefined, onProgress);
+  emit('WEB_DEV_CH2N', PHASE_INDEX.WEB_DEV_CH2N, 'running', 'Refining slide presentation (pass 2)...', undefined, onProgress);
 
   if (!script || !outline) {
     const msg = 'Skipping slide refinement (pass 2) — script or outline missing';
     errors.push(msg);
     recordPhaseResult('WEB_DEV_CH2N', 'web-video-presentation', false, null, msg);
-    emit('WEB_DEV_CH2N', 2, 'failed', msg, undefined, onProgress);
+    emit('WEB_DEV_CH2N', PHASE_INDEX.WEB_DEV_CH2N, 'failed', msg, undefined, onProgress);
     patchStore({ errors: [...readStore().errors, ...errors] });
     return { errors };
   }
@@ -307,18 +307,18 @@ async function runWebDevCh2n(
 
     if (result.success) {
       recordPhaseResult('WEB_DEV_CH2N', 'web-video-presentation', true, result.data);
-      emit('WEB_DEV_CH2N', 2, 'completed', 'Slides refined (pass 2)', result.data, onProgress);
+      emit('WEB_DEV_CH2N', PHASE_INDEX.WEB_DEV_CH2N, 'completed', 'Slides refined (pass 2)', result.data, onProgress);
     } else {
       const msg = result.error ?? 'web-video-presentation (pass 2) failed';
       errors.push(msg);
       recordPhaseResult('WEB_DEV_CH2N', 'web-video-presentation', false, null, msg);
-      emit('WEB_DEV_CH2N', 2, 'failed', msg, undefined, onProgress);
+      emit('WEB_DEV_CH2N', PHASE_INDEX.WEB_DEV_CH2N, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `web-video-presentation (pass 2) exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('WEB_DEV_CH2N', 'web-video-presentation', false, null, msg);
-    emit('WEB_DEV_CH2N', 2, 'failed', msg, undefined, onProgress);
+    emit('WEB_DEV_CH2N', PHASE_INDEX.WEB_DEV_CH2N, 'failed', msg, undefined, onProgress);
   }
 
   if (errors.length > 0) {
@@ -340,13 +340,13 @@ async function runAudioSynthesis(
   const errors: string[] = [];
   patchStore({ currentPhase: 'AUDIO_SYNTHESIS' });
 
-  emit('AUDIO_SYNTHESIS', 3, 'running', 'Synthesizing TTS audio and subtitles...', undefined, onProgress);
+  emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'running', 'Synthesizing TTS audio and subtitles...', undefined, onProgress);
 
   if (!script) {
     const msg = 'Skipping audio synthesis — no script available';
     errors.push(msg);
     recordPhaseResult('AUDIO_SYNTHESIS', 'minimax-tts', false, null, msg);
-    emit('AUDIO_SYNTHESIS', 3, 'failed', msg, undefined, onProgress);
+    emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'failed', msg, undefined, onProgress);
     patchStore({ errors: [...readStore().errors, ...errors] });
     return { errors };
   }
@@ -385,12 +385,12 @@ async function runAudioSynthesis(
 
     if (ttsResults.length > 0) {
       recordPhaseResult('AUDIO_SYNTHESIS', 'minimax-tts', true, ttsResults);
-      emit('AUDIO_SYNTHESIS', 3, 'completed', `TTS synthesized ${ttsResults.length}/${segments.length} segments`, ttsResults, onProgress);
+      emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'completed', `TTS synthesized ${ttsResults.length}/${segments.length} segments`, ttsResults, onProgress);
     } else if (errors.length === 0) {
       const msg = 'No TTS segments were generated';
       errors.push(msg);
       recordPhaseResult('AUDIO_SYNTHESIS', 'minimax-tts', false, null, msg);
-      emit('AUDIO_SYNTHESIS', 3, 'failed', msg, undefined, onProgress);
+      emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     // Top-level dynamic import failure (likely browser environment —
@@ -398,30 +398,30 @@ async function runAudioSynthesis(
     const msg = `TTS module unavailable (requires Node.js environment): ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('AUDIO_SYNTHESIS', 'minimax-tts', false, null, msg);
-    emit('AUDIO_SYNTHESIS', 3, 'failed', msg, undefined, onProgress);
+    emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'failed', msg, undefined, onProgress);
   }
 
   // -- Step 4b: subtitle generation --
-  emit('AUDIO_SYNTHESIS', 3, 'running', 'Generating SRT subtitles...', undefined, onProgress);
+  emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'running', 'Generating SRT subtitles...', undefined, onProgress);
 
   try {
     const result = await invokeSkill('subtitle-generator', { script });
 
     if (result.success) {
       recordPhaseResult('AUDIO_SYNTHESIS', 'subtitle-generator', true, result.data);
-      emit('AUDIO_SYNTHESIS', 3, 'completed', 'Subtitles generated', result.data, onProgress);
+      emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'completed', 'Subtitles generated', result.data, onProgress);
     } else {
       // subtitle-generator skill not implemented yet — non-fatal
       const msg = result.error ?? 'subtitle-generator not available';
       errors.push(msg);
       recordPhaseResult('AUDIO_SYNTHESIS', 'subtitle-generator', false, null, msg);
-      emit('AUDIO_SYNTHESIS', 3, 'failed', msg, undefined, onProgress);
+      emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `subtitle-generator exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('AUDIO_SYNTHESIS', 'subtitle-generator', false, null, msg);
-    emit('AUDIO_SYNTHESIS', 3, 'failed', msg, undefined, onProgress);
+    emit('AUDIO_SYNTHESIS', PHASE_INDEX.AUDIO_SYNTHESIS, 'failed', msg, undefined, onProgress);
   }
 
   if (errors.length > 0) {
@@ -441,10 +441,10 @@ async function runRecording(
   const errors: string[] = [];
   patchStore({ currentPhase: 'RECORDING' });
 
-  emit('RECORDING', 4, 'running', 'Recording MP4 video...', undefined, onProgress);
+  emit('RECORDING', PHASE_INDEX.RECORDING, 'running', 'Recording MP4 video...', undefined, onProgress);
 
   // -- Step 5a: Puppeteer screen capture --
-  emit('RECORDING', 4, 'running', 'Capturing presentation frames via Puppeteer...', undefined, onProgress);
+  emit('RECORDING', PHASE_INDEX.RECORDING, 'running', 'Capturing presentation frames via Puppeteer...', undefined, onProgress);
 
   try {
     const result = await invokeSkill('puppeteer-recorder', {
@@ -454,23 +454,23 @@ async function runRecording(
 
     if (result.success) {
       recordPhaseResult('RECORDING', 'puppeteer-recorder', true, result.data);
-      emit('RECORDING', 4, 'completed', 'Frame capture complete', result.data, onProgress);
+      emit('RECORDING', PHASE_INDEX.RECORDING, 'completed', 'Frame capture complete', result.data, onProgress);
     } else {
       // puppeteer-recorder skill not implemented yet — non-fatal
       const msg = result.error ?? 'puppeteer-recorder not available (requires Node.js backend)';
       errors.push(msg);
       recordPhaseResult('RECORDING', 'puppeteer-recorder', false, null, msg);
-      emit('RECORDING', 4, 'failed', msg, undefined, onProgress);
+      emit('RECORDING', PHASE_INDEX.RECORDING, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `puppeteer-recorder exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('RECORDING', 'puppeteer-recorder', false, null, msg);
-    emit('RECORDING', 4, 'failed', msg, undefined, onProgress);
+    emit('RECORDING', PHASE_INDEX.RECORDING, 'failed', msg, undefined, onProgress);
   }
 
   // -- Step 5b: FFmpeg MP4 encoding --
-  emit('RECORDING', 4, 'running', 'Encoding MP4 with FFmpeg...', undefined, onProgress);
+  emit('RECORDING', PHASE_INDEX.RECORDING, 'running', 'Encoding MP4 with FFmpeg...', undefined, onProgress);
 
   try {
     const result = await invokeSkill('ffmpeg-encoder', {
@@ -481,18 +481,18 @@ async function runRecording(
 
     if (result.success) {
       recordPhaseResult('RECORDING', 'ffmpeg-encoder', true, result.data);
-      emit('RECORDING', 4, 'completed', 'MP4 encoding complete', result.data, onProgress);
+      emit('RECORDING', PHASE_INDEX.RECORDING, 'completed', 'MP4 encoding complete', result.data, onProgress);
     } else {
       const msg = result.error ?? 'ffmpeg-encoder not available (requires Node.js backend)';
       errors.push(msg);
       recordPhaseResult('RECORDING', 'ffmpeg-encoder', false, null, msg);
-      emit('RECORDING', 4, 'failed', msg, undefined, onProgress);
+      emit('RECORDING', PHASE_INDEX.RECORDING, 'failed', msg, undefined, onProgress);
     }
   } catch (err) {
     const msg = `ffmpeg-encoder exception: ${err instanceof Error ? err.message : String(err)}`;
     errors.push(msg);
     recordPhaseResult('RECORDING', 'ffmpeg-encoder', false, null, msg);
-    emit('RECORDING', 4, 'failed', msg, undefined, onProgress);
+    emit('RECORDING', PHASE_INDEX.RECORDING, 'failed', msg, undefined, onProgress);
   }
 
   if (errors.length > 0) {

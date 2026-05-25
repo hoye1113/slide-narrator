@@ -221,12 +221,15 @@ export function VoicePicker({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const previewTimeouts = useRef<Map<string, number>>(new Map());
 
-  // Cleanup audio on unmount
+  // Cleanup audio and blob URLs on unmount
   useEffect(() => {
     return () => {
       audioRef.current?.pause();
       previewTimeouts.current.forEach((t) => clearTimeout(t));
       previewTimeouts.current.clear();
+      // Revoke all cached blob URLs to prevent memory leaks
+      previewCache.forEach((url) => URL.revokeObjectURL(url));
+      previewCache.clear();
     };
   }, []);
 

@@ -334,10 +334,15 @@ export function ArticleInput({ onSubmit, disabled }: ArticleInputProps) {
       e.stopPropagation();
       setIsDragOver(false);
 
-      const file = e.dataTransfer.files?.[0];
-      if (file) {
-        handleFile(file);
+      const files = Array.from(e.dataTransfer.files ?? []);
+      if (files.length === 0) return;
+
+      if (files.length > 1) {
+        setInputError('暂不支持同时导入多个文件，请逐一导入。');
+        return;
       }
+
+      handleFile(files[0]);
     },
     [handleFile],
   );
